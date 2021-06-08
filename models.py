@@ -41,7 +41,7 @@ class BiDAF(nn.Module):
 
         self.enc = layers.RNNEncoder(input_size=2*hidden_size,
                                      hidden_size=hidden_size,
-                                     num_layers=1,
+                                     num_layers=2,
                                      rnn_type=rnn_type,
                                      drop_prob=drop_prob)
 
@@ -50,10 +50,25 @@ class BiDAF(nn.Module):
 
         self.mod = layers.RNNEncoder(input_size=8 * hidden_size,
                                      hidden_size=hidden_size,
-                                     num_layers=2,
+                                     num_layers=1,
                                      rnn_type=rnn_type,
                                      drop_prob=drop_prob)
+        
+        self.att2 = layers.BiDAFAttention(hidden_size=2 * hidden_size,
+                                         drop_prob=drop_prob,
+                                         selfAttention=True)
 
+        self.mod2 = layers.RNNEncoder(input_size=6 * hidden_size,
+                                     hidden_size=hidden_size,
+                                     num_layers=1,
+                                     rnn_type=rnn_type,
+                                     drop_prob=drop_prob)
+        #self.satt = layers.SelfAttention(embed_dim = 2 * hidden_size,
+        #                                 num_heads=1)
+
+        #self.mhatt = layers.MHAttention(embed_size=2 * hidden_size, 
+        #                                num_heads=1)
+        
         self.out = layers.BiDAFOutput(hidden_size=hidden_size,
                                       drop_prob=drop_prob,
                                       rnn_type=rnn_type)
@@ -73,7 +88,14 @@ class BiDAF(nn.Module):
                        c_mask, q_mask)    # (batch_size, c_len, 8 * hidden_size)
 
         mod = self.mod(att, c_len)        # (batch_size, c_len, 2 * hidden_size)
+        
+        att2 = self.att2(mod, mod,
+                       c_mask, c_mask)    # (batch_size, c_len, 8 * hidden_size)
 
-        out = self.out(att, mod, c_mask)  # 2 tensors, each (batch_size, c_len)
+        mod2 = self.mod2(att2, c_len)        # (batch_size, c_len, 2 * hidden_size)
+        #satt,sattw = self.satt(mod,c_mask)    # (batch_size, c_len,  2*hidden_size)
+        #mhatt = self.mhatt(mod, mod, mod, c_mask, c_mask)    # (batch_size, c_len,  2*hidden_size)
+                                              # (batch_size, c_len,  2*hidden_size)
+        out = self.out(mod2, mod, c_mask)  # 2 tensors, each (batch_size, c_len)
 
         return out
