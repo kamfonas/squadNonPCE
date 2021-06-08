@@ -4,16 +4,16 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.6
+  - python=3.8
   - ujson
   - numpy
   - pip
-  - spacy=2.0.16
+  - spacy=2.3.7
   - tensorboard
   - tensorflow
   - tensorboardX
   - tqdm
   - urllib3
-  - pytorch=1.0.0
+  - pytorch
   - pip:
-    - torch==1.0.0
+    - torch
