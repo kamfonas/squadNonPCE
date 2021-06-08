@@ -48,6 +48,7 @@ def main(args):
     log.info('Building model...')
     model = BiDAF(word_vectors=word_vectors,
                   hidden_size=args.hidden_size,
+                  rnn_type=args.rnn_type,
                   drop_prob=args.drop_prob)
     model = nn.DataParallel(model, args.gpu_ids)
     if args.load_path:
@@ -112,7 +113,7 @@ def main(args):
                 loss.backward()
                 nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 optimizer.step()
-                scheduler.step(step // batch_size)
+                scheduler.step() # removed parm step // batch_size per scheduler 1.8 release notes
                 ema(model, step // batch_size)
 
                 # Log info

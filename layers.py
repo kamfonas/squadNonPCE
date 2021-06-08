@@ -84,14 +84,22 @@ class RNNEncoder(nn.Module):
                  input_size,
                  hidden_size,
                  num_layers,
+                 rnn_type,
                  drop_prob=0.):
         super(RNNEncoder, self).__init__()
         self.drop_prob = drop_prob
-        self.rnn = nn.LSTM(input_size, hidden_size, num_layers,
+
+        if rnn_type == 'GRU':
+            self.rnn = nn.GRU(input_size, hidden_size, num_layers,
                            batch_first=True,
                            bidirectional=True,
                            dropout=drop_prob if num_layers > 1 else 0.)
-
+        else:
+            self.rnn = nn.LSTM(input_size, hidden_size, num_layers,
+                           batch_first=True,
+                           bidirectional=True,
+                           dropout=drop_prob if num_layers > 1 else 0.)
+            
     def forward(self, x, lengths):
         # Save original padded length for use by pad_packed_sequence
         orig_len = x.size(1)
@@ -99,7 +107,7 @@ class RNNEncoder(nn.Module):
         # Sort by length and pack sequence for RNN
         lengths, sort_idx = lengths.sort(0, descending=True)
         x = x[sort_idx]     # (batch_size, seq_len, input_size)
-        x = pack_padded_sequence(x, lengths, batch_first=True)
+        x = pack_padded_sequence(x, lengths.to('cpu'), batch_first=True)
 
         # Apply RNN
         x, _ = self.rnn(x)  # (batch_size, seq_len, 2 * hidden_size)
@@ -196,7 +204,9 @@ class BiDAFOutput(nn.Module):
         hidden_size (int): Hidden size used in the BiDAF model.
         drop_prob (float): Probability of zero-ing out activations.
     """
-    def __init__(self, hidden_size, drop_prob):
+
+    def __init__(self, hidden_size, drop_prob, rnn_type):
+
         super(BiDAFOutput, self).__init__()
         self.att_linear_1 = nn.Linear(8 * hidden_size, 1)
         self.mod_linear_1 = nn.Linear(2 * hidden_size, 1)
@@ -204,6 +214,7 @@ class BiDAFOutput(nn.Module):
         self.rnn = RNNEncoder(input_size=2 * hidden_size,
                               hidden_size=hidden_size,
                               num_layers=1,
+                              rnn_type=rnn_type,
                               drop_prob=drop_prob)
 
         self.att_linear_2 = nn.Linear(8 * hidden_size, 1)

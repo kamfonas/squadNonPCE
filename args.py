@@ -242,3 +242,10 @@ def add_train_test_args(parser):
                         type=str,
                         default=None,
                         help='Path to load as a model checkpoint.')
+    # Added options:
+    # options to control changes using this project
+    parser.add_argument('--rnn_type',
+                        type=str,
+                        default='LSTM',
+                        choices=('LSTM', 'GRU'),
+                        help='Whether to use LSTM or GRU for all RNNs.')
