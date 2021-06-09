@@ -1,3 +1,17 @@
+## About the Branch History 
+
+This repository's main branch is a clone of the original [Stanford CS224N Default Project Repository](https://github.com/minggg/squad) mentioned in [this project handout](http://web.stanford.edu/class/cs224n/project/default-final-project-handout.pdf)
+
+The baseline branch is identical to the main and it is introduced as a separate branch to allow minimal documentation and annotations that are not in the original.
+
+The Baseline + GRU branch includes functionality that allows the substitution of LSTM with a GRU. An added command-line parameter: --rnn_type, can take values LSTM or GRU. This option has been carried forward to the other branches that follow. It also includes a change to the environment.yml to with updated dependencies of Python, PyTorch and spicy. The spicy dpendency change is only relevant if you decide to setup the data using this version of spiCy. If you have already setup the data with prior branches or the original baseline configuration, then you can continue without rerunning setup. 
+
+The branch, "Baseline + GRU + Character Embeddings" is based on the "Baseline + GRU" and it adds character embeddings. An argument has been added to toggle this new feature on and off, but the code ignores it and always runs the model with character embeddings. 
+
+The current branch is based on "Baseline + GRU + Character Embeddings" and it adds a Self-Attention layer after the BiDAF Attention layer. The BiDAF class has been modified to take an argument SelfAttention to control the behavior. We have attempted various options for the self attention and two new classes are present in the code: One attempted to use the built-in new Multi-Head Attention module of PyTorch, but we encountered issues with stability and after a few iterations the weights turned to NaN. The Batch-First option is also missing at the current release level. Another self-attention separate module was entertained, and it appears in the Layers,  but we decided to use the augmented BiDAF Attention instead. 
+
+The setup we use to test this branch is the one originally provided and not the one reflected in the current environment.yml. The more recent version of spiCy that has not been fully tested. 
+
 ## Setup
 
 1. Make sure you have [Miniconda](https://conda.io/docs/user-guide/install/index.html#regular-installation) installed
