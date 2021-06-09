@@ -1,3 +1,11 @@
+## About this Branch
+
+This repository's main branch is a clone of the original [Stanford CS224N Default Project Repository](https://github.com/minggg/squad) mentioned in [this project handout](http://web.stanford.edu/class/cs224n/project/default-final-project-handout.pdf)
+
+This baseline branch isidentical to the main and it is introduced as a separate branch to allow minimal documentation and annotations that are not in the original.
+
+Please follow the original Setup section shown below to  create the required data environment. All branches operate on the same data without changes.  
+
 ## Setup
 
 1. Make sure you have [Miniconda](https://conda.io/docs/user-guide/install/index.html#regular-installation) installed
