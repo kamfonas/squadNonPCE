@@ -6,7 +6,7 @@ This repository contains named branches that represent the enhancement added. Ea
 
 Everything following this section in the main branch should be identical to the cloned repository. This About section was the only change.
 
-## Setup
+## Setup (from the original instructions)
 
 1. Make sure you have [Miniconda](https://conda.io/docs/user-guide/install/index.html#regular-installation) installed
     1. Conda is a package manager that sandboxes your project’s dependencies in a virtual environment
