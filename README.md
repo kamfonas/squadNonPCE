@@ -1,3 +1,13 @@
+## About this Branch 
+
+This repository's main branch is a clone of the original [Stanford CS224N Default Project Repository](https://github.com/minggg/squad) mentioned in [this project handout](http://web.stanford.edu/class/cs224n/project/default-final-project-handout.pdf)
+
+The baseline branch is identical to the main and it is introduced as a separate branch to allow minimal documentation and annotations that are not in the original.
+
+The Baseline + GRU branch includes functionality that allows the substitution of LSTM with a GRU. An added command-line parameter: --rnn_type, can take values LSTM or GRU. This option has been carried forward to the other branches that follow. It also includes a change to the environment.yml to with updated dependencies of Python, PyTorch and spicy. The spicy dpendency change is only relevant if you decide to setup the data using this version of spiCy. If you have already setup the data with prior branches or the original baseline configuration, then you can continue without rerunning setup. 
+
+This branch, "Baseline + GRU + Character Embeddings" is based on the "Baseline + GRU" and it adds character embeddings. An argument has been added to toggle this new feature on and off, but the code ignores it and always runs the model with character embeddings. 
+
 ## Setup
 
 1. Make sure you have [Miniconda](https://conda.io/docs/user-guide/install/index.html#regular-installation) installed
