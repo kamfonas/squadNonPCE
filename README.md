@@ -4,7 +4,7 @@ This repository's main branch is a clone of the original [Stanford CS224N Defaul
 
 This repository contains named branches that represent the enhancement added. Each such branch may have accordingly modified or added comments to this readMe file and to the code. 
 
-Everything following this section in the main branch should be identical to the cloned repository. This About section was the only change.
+Please follow the original Setup section to create the required data environment. All branches operate on the same data without changes.  
 
 ## Setup (from the original instructions)
 
