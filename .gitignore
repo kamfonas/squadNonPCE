@@ -2,5 +2,6 @@
 .idea/
 __pycache__
 .texpadtmp/
+.spyproject\
 data/
 save/
