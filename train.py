@@ -142,7 +142,7 @@ def main(args):
                 tbx.add_scalar('train/LR',
                                optimizer.param_groups[0]['lr'],
                                step)
-
+                
                 steps_till_eval -= batch_size
                 if steps_till_eval <= 0:
                     steps_till_eval = args.eval_steps
@@ -171,9 +171,10 @@ def main(args):
                                    step=step,
                                    split='dev',
                                    num_visuals=args.num_visuals)
-        tbx.add_hparams(args.__dict__,
-                        {'hparm/NLL', loss_val
-                        })
+
+                    hparms = args.__dict__.copy()
+                    hparms['gpu_ids']=str(args.gpu_ids)
+                    tbx.add_hparams(hparms,dict(results))
 
 
 def evaluate(model, data_loader, device, eval_file, max_len, use_squad_v2):
