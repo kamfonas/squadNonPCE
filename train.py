@@ -57,7 +57,7 @@ def main(args):
                   hidden_size=args.hidden_size,
                   rnn_type=args.rnn_type,
                   drop_prob=args.drop_prob)
-    #tbx.add_graph(model)
+
     #if args.device_cpu:
     #    args.gpu_ids = []
     #    device = 'cpu'
@@ -99,11 +99,12 @@ def main(args):
                                  num_workers=args.num_workers,
                                  collate_fn=collate_fn)
 
+    #cw_idxs, cc_idxs, qw_idxs, qc_idxs, y1, y2, ids = next(iter(dev_loader))
+    #tbx.add_graph(model,[cw_idxs, cc_idxs, qw_idxs, qc_idxs])
     # Train
     log.info('Training...')
     steps_till_eval = args.eval_steps
     epoch = step // len(train_dataset)
-    first_iter = True
     while epoch != args.num_epochs:
         epoch += 1
         log.info(f'Starting epoch {epoch}...')
@@ -117,6 +118,7 @@ def main(args):
                 qc_idxs = qc_idxs.to(device)
                 batch_size = cw_idxs.size(0)
                 optimizer.zero_grad()
+                
                 # Forward
                 log_p1, log_p2 = model(cw_idxs,cc_idxs, qw_idxs, qc_idxs)
                 y1, y2 = y1.to(device), y2.to(device)
@@ -131,10 +133,6 @@ def main(args):
                 ema(model, step // batch_size)
 
                 # Log info
-                if step < batch_size:
-                    tbx.add_graph(model, 
-                                 input_to_model=[cw_idxs,cc_idxs, qw_idxs, qc_idxs], 
-                                 verbose=False)
                 step += batch_size
                 progress_bar.update(batch_size)
                 progress_bar.set_postfix(epoch=epoch,
