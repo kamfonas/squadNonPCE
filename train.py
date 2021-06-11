@@ -174,7 +174,8 @@ def main(args):
 
                     hparms = args.__dict__.copy()
                     hparms['gpu_ids']=str(args.gpu_ids)
-                    tbx.add_hparams(hparms,dict(results))
+                    metrics =  dict([ ('met/'+k,v) for (k,v) in results.items()])
+                    tbx.add_hparams(hparms,metrics)
 
 
 def evaluate(model, data_loader, device, eval_file, max_len, use_squad_v2):
