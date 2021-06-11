@@ -172,10 +172,10 @@ def main(args):
                                    split='dev',
                                    num_visuals=args.num_visuals)
 
-                    hparms = args.__dict__.copy()
-                    hparms['gpu_ids']=str(args.gpu_ids)
-                    metrics =  dict([ ('met/'+k,v) for (k,v) in results.items()])
-                    tbx.add_hparams(hparms,metrics)
+    hparms = args.__dict__.copy()
+    hparms['gpu_ids']=str(args.gpu_ids)
+    metrics =  dict([ ('met/'+k,v) for (k,v) in results.items()])
+    tbx.add_hparams(hparms,metrics)
 
 
 def evaluate(model, data_loader, device, eval_file, max_len, use_squad_v2):
