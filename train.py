@@ -38,6 +38,12 @@ def main(args):
     log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
     args.batch_size *= max(1, len(args.gpu_ids))
 
+    hparms = args.__dict__.copy()
+    hparms['gpu_ids']=str(args.gpu_ids)
+    metrics = {}
+    tbx.add_hparams(hparms,metrics)
+
+
     # Set random seed
     log.info(f'Using random seed {args.seed}...')
     random.seed(args.seed)
@@ -58,11 +64,8 @@ def main(args):
                   rnn_type=args.rnn_type,
                   drop_prob=args.drop_prob)
 
-    #if args.device_cpu:
-    #    args.gpu_ids = []
-    #    device = 'cpu'
-    #else:
-    model = nn.DataParallel(model, args.gpu_ids)
+    if len(args.gpu_ids) > 1:
+        model = nn.DataParallel(model, args.gpu_ids)
     if args.load_path:
         log.info(f'Loading checkpoint from {args.load_path}...')
         model, step = util.load_model(model, args.load_path, args.gpu_ids)
@@ -99,8 +102,14 @@ def main(args):
                                  num_workers=args.num_workers,
                                  collate_fn=collate_fn)
 
-    #cw_idxs, cc_idxs, qw_idxs, qc_idxs, y1, y2, ids = next(iter(dev_loader))
-    #tbx.add_graph(model,[cw_idxs, cc_idxs, qw_idxs, qc_idxs])
+    # get some input data and crate the model graph for tensorboard
+    cw_idxs, cc_idxs, qw_idxs, qc_idxs, y1, y2, ids = next(iter(dev_loader))
+    cw_idxs = cw_idxs.to(device)
+    qw_idxs = qw_idxs.to(device)
+    cc_idxs = cc_idxs.to(device)
+    qc_idxs = qc_idxs.to(device)   
+    tbx.add_graph(model,[cw_idxs, cc_idxs, qw_idxs, qc_idxs])
+    
     # Train
     log.info('Training...')
     steps_till_eval = args.eval_steps
@@ -165,6 +174,7 @@ def main(args):
                     log.info('Visualizing in TensorBoard...')
                     for k, v in results.items():
                         tbx.add_scalar(f'dev/{k}', v, step)
+                        
                     util.visualize(tbx,
                                    pred_dict=pred_dict,
                                    eval_path=args.dev_eval_file,
@@ -172,9 +182,7 @@ def main(args):
                                    split='dev',
                                    num_visuals=args.num_visuals)
 
-    hparms = args.__dict__.copy()
-    hparms['gpu_ids']=str(args.gpu_ids)
-    metrics =  dict([ ('met/'+k,v) for (k,v) in results.items()])
+    metrics =  dict([ ('final/'+k,v) for (k,v) in results.items()])
     tbx.add_hparams(hparms,metrics)
 
 

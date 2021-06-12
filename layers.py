@@ -60,7 +60,7 @@ class Embedding(nn.Module):
         #c_emb = F.dropout(c_emb, self.drop_prob, self.training)
         #c_emb = c_emb.view(-1,c_emb.size(-1)*c_emb.size(2)).unsqueeze(1)
         y = F.relu(self.char_cnn(y))
-        y = F.max_pool1d(y, kernel_size = y.size(2)).squeeze()
+        y = F.max_pool1d(y, kernel_size = (y.size(2),)).squeeze()
 
         x = torch.cat([x, y], dim=-1)
         x = self.hwy(x)  # (batch_size * seq_len, hidden_size)
