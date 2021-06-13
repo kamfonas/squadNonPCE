@@ -259,5 +259,9 @@ def add_train_test_args(parser):
                         help='Whether to use LSTM or GRU for all RNNs.')
     parser.add_argument('--char_embeddings',
                         type=lambda s: s.lower().startswith('t'),
-                        default=False,
+                        default=True,
                         help='Add character embeddings and concatenate with word embeddings.')
+    parser.add_argument('--self_att',
+                        type=lambda s: s.lower().startswith('t'),
+                        default=True,
+                        help='Add Self-Attention Layer to the model.')
