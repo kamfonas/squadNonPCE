@@ -38,10 +38,10 @@ def main(args):
     log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
     args.batch_size *= max(1, len(args.gpu_ids))
 
+    # record tensorboard hparms
     hparms = args.__dict__.copy()
     hparms['gpu_ids']=str(args.gpu_ids)
-    metrics = {}
-    tbx.add_hparams(hparms,metrics)
+    tbx.add_hparams(hparms,{})
 
 
     # Set random seed
@@ -54,14 +54,17 @@ def main(args):
     # Get embeddings
     log.info('Loading embeddings...')
     word_vectors = util.torch_from_json(args.word_emb_file)
-    char_vectors = util.torch_from_json(args.char_emb_file)
-
+    if args.char_embeddings:
+        char_vectors = util.torch_from_json(args.char_emb_file)
+    else:
+        char_vectors = None
     # Get model
     log.info('Building model...')
     model = BiDAF(word_vectors = word_vectors,
                   char_vectors = char_vectors,
                   hidden_size=args.hidden_size,
                   rnn_type=args.rnn_type,
+                  self_att=args.self_att,
                   drop_prob=args.drop_prob)
 
     if len(args.gpu_ids) > 1:
