@@ -41,8 +41,10 @@ def main(args):
     # record tensorboard hparms
     hparms = args.__dict__.copy()
     hparms['gpu_ids']=str(args.gpu_ids)
+    print(args.self_att)
+    print(hparms['self_att'])
     tbx.add_hparams(hparms,{})
-
+    tbx.flush()
 
     # Set random seed
     log.info(f'Using random seed {args.seed}...')
@@ -187,7 +189,11 @@ def main(args):
 
     metrics =  dict([ ('final/'+k,v) for (k,v) in results.items()])
     tbx.add_hparams(hparms,metrics)
-
+    tbx.close()
+    log.info('Final Hyper-parameters:')
+    log.info(hparms)
+    log.info('Final Metrics:')
+    log.info(metrics)
 
 def evaluate(model, data_loader, device, eval_file, max_len, use_squad_v2):
     nll_meter = util.AverageMeter()
