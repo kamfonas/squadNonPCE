@@ -62,7 +62,7 @@ See the args.py file to see all arguments
 
 ## Tensorboard
 
-The combined release uses Tensorboard to record the scalars provided originally in the starting code. It also combines two significant additions:
+The combined release uses Tensorboard to record the scalars provided originally in the starting code. You can u se the directions published in the handout. Two significant additions are:
 
 1.  Hyperparameters and final metrics
 2.  The Model graph
