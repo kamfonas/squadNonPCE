@@ -34,24 +34,30 @@ def main(args):
     args.save_dir = util.get_save_dir(args.save_dir, args.name, training=False)
     log = util.get_logger(args.save_dir, args.name)
     log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
-    device, gpu_ids = util.get_available_devices()
-    args.batch_size *= max(1, len(gpu_ids))
+    device, args.gpu_ids = util.get_available_devices()
+    args.batch_size *= max(1, len(args.gpu_ids))
 
     # Get embeddings
     log.info('Loading embeddings...')
     word_vectors = util.torch_from_json(args.word_emb_file)
-    char_vectors = util.torch_from_json(args.char_emb_file)
+    if args.char_embeddings:
+        char_vectors = util.torch_from_json(args.char_emb_file)
+    else:
+        char_vectors = None
+
 
     # Get model
     log.info('Building model...')
-
-    model = BiDAF(word_vectors=word_vectors,
+    model = BiDAF(word_vectors = word_vectors,
                   char_vectors = char_vectors,
                   hidden_size=args.hidden_size,
-                  rnn_type=args.rnn_type)
-    model = nn.DataParallel(model, gpu_ids)
+                  rnn_type=args.rnn_type,
+                  self_att=args.self_att)
+
+    if len(args.gpu_ids) > 1:
+        model = nn.DataParallel(model, args.gpu_ids)
     log.info(f'Loading checkpoint from {args.load_path}...')
-    model = util.load_model(model, args.load_path, gpu_ids, return_step=False)
+    model = util.load_model(model, args.load_path, args.gpu_ids, return_step=False)
     model = model.to(device)
     model.eval()
 
