@@ -1,7 +1,8 @@
 """Assortment of layers for use in models.py.
 
 Author:
-    Chris Chute (chute@stanford.edu)
+    Based on base code by Chris Chute (chute@stanford.edu)
+    Modified by Michael Kamfonas: mkamfonas@infokarta.com
 """
 
 import torch
@@ -11,13 +12,10 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from util import masked_softmax
 
-
 class Embedding(nn.Module):
     """Embedding layer used by BiDAF, without the character-level component.
-
     Word-level embeddings are further refined using a 2-layer Highway Encoder
     (see `HighwayEncoder` class for details).
-
     Args:
         word_vectors (torch.Tensor): Pre-trained word vectors.
         hidden_size (int): Size of hidden activations.
@@ -38,6 +36,61 @@ class Embedding(nn.Module):
 
         return emb
 
+class EmbeddingCE(nn.Module):
+    """Embedding layer used by BiDAF.
+    Character embeddings have been added to the original baseline
+
+    Word-level embeddings are concatenated with character embeddings
+    and the combined result is further refined using a 2-layer Highway Encoder
+    (see `HighwayEncoder` class for details). This part is not changed from the
+    original baseline
+
+    Args:
+        word_vectors (torch.Tensor): Pre-trained word vectors.
+        char_vctors (torvh.Tensor): Randomly  initialized char vectors
+        hidden_size (int): Size of hidden activations.
+        drop_prob (float): Probability of zero-ing out activations
+    """
+
+    def __init__(self, word_vectors, char_vectors,
+                 hidden_size, drop_prob):
+        super(EmbeddingCE, self).__init__()
+
+        self.drop_prob = drop_prob
+        self.word_embed = nn.Embedding.from_pretrained(word_vectors, freeze=True)
+        self.proj = nn.Linear(word_vectors.size(1), hidden_size, bias=False)
+
+        self.char_embed = nn.Embedding.from_pretrained(char_vectors, freeze=False)
+        #self.char_cnn = nn.Conv2d(in_channels = 1,out_channels = hidden_size,
+        #                          kernel_size = (64,5), padding=(0,2))
+        self.char_cnn = nn.Conv1d(in_channels = 64,out_channels = hidden_size,
+                                  kernel_size = 5)
+        self.hwy = HighwayEncoder(2, 2*hidden_size)
+
+
+    def forward(self, x, y):
+        batch_size, words_per_sentence = x.size()
+        chars_per_word =y.size(2)
+        x = x.reshape((-1))
+        y = y.reshape((-1,chars_per_word))
+
+        x = self.word_embed(x)  # (batch_size * words_per_sentence, embed_size)
+        x = F.dropout(x, self.drop_prob, self.training)
+        x = self.proj(x)  # (batch_size * words_per_sentence, hidden_size)
+
+        y = self.char_embed(y) #
+        y = torch.einsum('bwc -> bcw',y) # batch_size * words_per_sentence, char_embedding, chars_per_word
+        #c_emb = F.dropout(c_emb, self.drop_prob, self.training)
+        #c_emb = c_emb.view(-1,c_emb.size(-1)*c_emb.size(2)).unsqueeze(1)
+        y = F.relu(self.char_cnn(y))
+        y = F.max_pool1d(y, kernel_size = (y.size(2),)).squeeze()
+
+        x = torch.cat([x, y], dim=-1)
+        x = self.hwy(x)  # (batch_size * seq_len, hidden_size)
+        x = x.reshape(batch_size, words_per_sentence,-1)
+
+        return x
+
 
 class HighwayEncoder(nn.Module):
     """Encode an input sequence using a highway network.
@@ -51,6 +104,7 @@ class HighwayEncoder(nn.Module):
         num_layers (int): Number of layers in the highway encoder.
         hidden_size (int): Size of hidden activations.
     """
+
     def __init__(self, num_layers, hidden_size):
         super(HighwayEncoder, self).__init__()
         self.transforms = nn.ModuleList([nn.Linear(hidden_size, hidden_size)
@@ -80,14 +134,23 @@ class RNNEncoder(nn.Module):
         num_layers (int): Number of layers of RNN cells to use.
         drop_prob (float): Probability of zero-ing out activations.
     """
+
     def __init__(self,
                  input_size,
                  hidden_size,
                  num_layers,
+                 rnn_type,
                  drop_prob=0.):
         super(RNNEncoder, self).__init__()
         self.drop_prob = drop_prob
-        self.rnn = nn.LSTM(input_size, hidden_size, num_layers,
+
+        if rnn_type == 'GRU':
+            self.rnn = nn.GRU(input_size, hidden_size, num_layers,
+                           batch_first=True,
+                           bidirectional=True,
+                           dropout=drop_prob if num_layers > 1 else 0.)
+        else:
+            self.rnn = nn.LSTM(input_size, hidden_size, num_layers,
                            batch_first=True,
                            bidirectional=True,
                            dropout=drop_prob if num_layers > 1 else 0.)
@@ -99,7 +162,7 @@ class RNNEncoder(nn.Module):
         # Sort by length and pack sequence for RNN
         lengths, sort_idx = lengths.sort(0, descending=True)
         x = x[sort_idx]     # (batch_size, seq_len, input_size)
-        x = pack_padded_sequence(x, lengths, batch_first=True)
+        x = pack_padded_sequence(x, lengths.to('cpu'), batch_first=True)
 
         # Apply RNN
         x, _ = self.rnn(x)  # (batch_size, seq_len, 2 * hidden_size)
@@ -107,10 +170,10 @@ class RNNEncoder(nn.Module):
         # Unpack and reverse sort
         x, _ = pad_packed_sequence(x, batch_first=True, total_length=orig_len)
         _, unsort_idx = sort_idx.sort(0)
-        x = x[unsort_idx]   # (batch_size, seq_len, 2 * hidden_size)
-
+        x = x[unsort_idx]  # (batch_size, seq_len, 2 * hidden_size)
+        #self.rnn.flatten_parameters()
         # Apply dropout (RNN applies dropout after all but the last layer)
-        x = F.dropout(x, self.drop_prob, self.training)
+        #x = F.dropout(x, self.drop_prob, self.training)
 
         return x
 
@@ -130,8 +193,10 @@ class BiDAFAttention(nn.Module):
         hidden_size (int): Size of hidden activations.
         drop_prob (float): Probability of zero-ing out activations.
     """
-    def __init__(self, hidden_size, drop_prob=0.1):
+
+    def __init__(self, hidden_size, drop_prob=0.1, selfAttention = False):
         super(BiDAFAttention, self).__init__()
+        self.selfAttention = selfAttention
         self.drop_prob = drop_prob
         self.c_weight = nn.Parameter(torch.zeros(hidden_size, 1))
         self.q_weight = nn.Parameter(torch.zeros(hidden_size, 1))
@@ -143,18 +208,22 @@ class BiDAFAttention(nn.Module):
     def forward(self, c, q, c_mask, q_mask):
         batch_size, c_len, _ = c.size()
         q_len = q.size(1)
-        s = self.get_similarity_matrix(c, q)        # (batch_size, c_len, q_len)
+        s = self.get_similarity_matrix(c, q)  # (batch_size, c_len, q_len)
         c_mask = c_mask.view(batch_size, c_len, 1)  # (batch_size, c_len, 1)
         q_mask = q_mask.view(batch_size, 1, q_len)  # (batch_size, 1, q_len)
-        s1 = masked_softmax(s, q_mask, dim=2)       # (batch_size, c_len, q_len)
-        s2 = masked_softmax(s, c_mask, dim=1)       # (batch_size, c_len, q_len)
+        s1 = masked_softmax(s, q_mask, dim=2)  # (batch_size, c_len, q_len)
+        s2 = masked_softmax(s, c_mask, dim=1)  # (batch_size, c_len, q_len)
 
         # (bs, c_len, q_len) x (bs, q_len, hid_size) => (bs, c_len, hid_size)
         a = torch.bmm(s1, q)
-        # (bs, c_len, c_len) x (bs, c_len, hid_size) => (bs, c_len, hid_size)
-        b = torch.bmm(torch.bmm(s1, s2.transpose(1, 2)), c)
-
-        x = torch.cat([c, a, c * a, c * b], dim=2)  # (bs, c_len, 4 * hid_size)
+        
+        if self.selfAttention:
+            assert(torch.all(c.eq(q))), "Self attention requires c == c and c_mask = q_mask"
+            x = torch.cat([c, a, c * a], dim=2)  # (bs, c_len, 3 * hid_size)
+        else:
+            # (bs, c_len, c_len) x (bs, c_len, hid_size) => (bs, c_len, hid_size)
+            b = torch.bmm(torch.bmm(s1, s2.transpose(1, 2)), c)
+            x = torch.cat([c, a, c * a, c * b], dim=2)  # (bs, c_len, 4 * hid_size)
 
         return x
 
@@ -175,14 +244,15 @@ class BiDAFAttention(nn.Module):
 
         # Shapes: (batch_size, c_len, q_len)
         s0 = torch.matmul(c, self.c_weight).expand([-1, -1, q_len])
-        s1 = torch.matmul(q, self.q_weight).transpose(1, 2)\
-                                           .expand([-1, c_len, -1])
+        s1 = torch.matmul(q, self.q_weight).transpose(1, 2) \
+            .expand([-1, c_len, -1])
         s2 = torch.matmul(c * self.cq_weight, q.transpose(1, 2))
         s = s0 + s1 + s2 + self.bias
-
+        #if self.selfAttention:
+        #    s -= (1.0e7)*(torch.eye(c_len,c_len).unsqueeze(0).to(s.device))
         return s
 
-
+ 
 class BiDAFOutput(nn.Module):
     """Output layer used by BiDAF for question answering.
 
@@ -196,7 +266,9 @@ class BiDAFOutput(nn.Module):
         hidden_size (int): Hidden size used in the BiDAF model.
         drop_prob (float): Probability of zero-ing out activations.
     """
-    def __init__(self, hidden_size, drop_prob):
+
+    def __init__(self, hidden_size, drop_prob, rnn_type):
+
         super(BiDAFOutput, self).__init__()
         self.att_linear_1 = nn.Linear(8 * hidden_size, 1)
         self.mod_linear_1 = nn.Linear(2 * hidden_size, 1)
@@ -204,9 +276,51 @@ class BiDAFOutput(nn.Module):
         self.rnn = RNNEncoder(input_size=2 * hidden_size,
                               hidden_size=hidden_size,
                               num_layers=1,
+                              rnn_type=rnn_type,
                               drop_prob=drop_prob)
 
         self.att_linear_2 = nn.Linear(8 * hidden_size, 1)
+        self.mod_linear_2 = nn.Linear(2 * hidden_size, 1)
+
+    def forward(self, att, mod, mask):
+        # Shapes: (batch_size, seq_len, 1)
+        logits_1 = self.att_linear_1(att) + self.mod_linear_1(mod)
+        mod_2 = self.rnn(mod, mask.sum(-1))
+        logits_2 = self.att_linear_2(att) + self.mod_linear_2(mod_2)
+
+        # Shapes: (batch_size, seq_len)
+        log_p1 = masked_softmax(logits_1.squeeze(), mask, log_softmax=True)
+        log_p2 = masked_softmax(logits_2.squeeze(), mask, log_softmax=True)
+
+        return log_p1, log_p2
+
+class BiDAFOutput2(nn.Module):
+    """Output layer used by BiDAF for question answering.
+
+    Computes a linear transformation of the attention and modeling
+    outputs, then takes the softmax of the result to get the start pointer.
+    A bidirectional LSTM is then applied the modeling output to produce `mod_2`.
+    A second linear+softmax of the attention output and `mod_2` is used
+    to get the end pointer.
+
+    Args:
+        hidden_size (int): Hidden size used in the BiDAF model.
+        drop_prob (float): Probability of zero-ing out activations.
+    """
+
+    def __init__(self, hidden_size, drop_prob, rnn_type):
+
+        super(BiDAFOutput2, self).__init__()
+        self.att_linear_1 = nn.Linear(2 * hidden_size, 1)
+        self.mod_linear_1 = nn.Linear(2 * hidden_size, 1)
+
+        self.rnn = RNNEncoder(input_size=2 * hidden_size,
+                              hidden_size=hidden_size,
+                              num_layers=1,
+                              rnn_type=rnn_type,
+                              drop_prob=drop_prob)
+
+        self.att_linear_2 = nn.Linear(2 * hidden_size, 1)
         self.mod_linear_2 = nn.Linear(2 * hidden_size, 1)
 
     def forward(self, att, mod, mask):

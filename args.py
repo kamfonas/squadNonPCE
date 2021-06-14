@@ -134,7 +134,15 @@ def get_train_args():
                         type=float,
                         default=0.999,
                         help='Decay rate for exponential moving average of parameters.')
-
+    # The following added for Char embeddings
+    parser.add_argument('--char_out_channels',
+                        type=int,
+                        default=5,
+                        help='Number of channels for CNN convolution output.')
+    parser.add_argument('--char_kernel_size',
+                        type=int,
+                        default=100,
+                        help='Char convolution size for CNN.')
     args = parser.parse_args()
 
     if args.metric_name == 'NLL':
@@ -223,7 +231,7 @@ def add_train_test_args(parser):
                         help='Base directory for saving information.')
     parser.add_argument('--batch_size',
                         type=int,
-                        default=64,
+                        default=32,
                         help='Batch size per GPU. Scales automatically when \
                               multiple GPUs are available.')
     parser.add_argument('--use_squad_v2',
@@ -242,3 +250,18 @@ def add_train_test_args(parser):
                         type=str,
                         default=None,
                         help='Path to load as a model checkpoint.')
+    # Added options:
+    # options to control changes using this project
+    parser.add_argument('--rnn_type',
+                        type=str,
+                        default='LSTM',
+                        choices=('LSTM', 'GRU'),
+                        help='Whether to use LSTM or GRU for all RNNs.')
+    parser.add_argument('--char_embeddings',
+                        type=lambda s: s.lower().startswith('t'),
+                        default=False,
+                        help='Add character embeddings and concatenate with word embeddings.')
+    parser.add_argument('--self_att',
+                        type=lambda s: s.lower().startswith('t'),
+                        default=False,
+                        help='Add Self-Attention Layer to the model.')

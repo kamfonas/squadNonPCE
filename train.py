@@ -18,7 +18,8 @@ from args import get_train_args
 from collections import OrderedDict
 from json import dumps
 from models import BiDAF
-from tensorboardX import SummaryWriter
+#from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from ujson import load as json_load
 from util import collate_fn, SQuAD
@@ -29,9 +30,21 @@ def main(args):
     args.save_dir = util.get_save_dir(args.save_dir, args.name, training=True)
     log = util.get_logger(args.save_dir, args.name)
     tbx = SummaryWriter(args.save_dir)
+    #if args.device_cpu:
+    #    device = 'cpu',
+    #    args.gpu_ids = []
+    #else:
     device, args.gpu_ids = util.get_available_devices()
     log.info(f'Args: {dumps(vars(args), indent=4, sort_keys=True)}')
     args.batch_size *= max(1, len(args.gpu_ids))
+
+    # record tensorboard hparms
+    hparms = args.__dict__.copy()
+    hparms['gpu_ids']=str(args.gpu_ids)
+    print(args.self_att)
+    print(hparms['self_att'])
+    tbx.add_hparams(hparms,{})
+    tbx.flush()
 
     # Set random seed
     log.info(f'Using random seed {args.seed}...')
@@ -43,13 +56,21 @@ def main(args):
     # Get embeddings
     log.info('Loading embeddings...')
     word_vectors = util.torch_from_json(args.word_emb_file)
-
+    if args.char_embeddings:
+        char_vectors = util.torch_from_json(args.char_emb_file)
+    else:
+        char_vectors = None
     # Get model
     log.info('Building model...')
-    model = BiDAF(word_vectors=word_vectors,
+    model = BiDAF(word_vectors = word_vectors,
+                  char_vectors = char_vectors,
                   hidden_size=args.hidden_size,
+                  rnn_type=args.rnn_type,
+                  self_att=args.self_att,
                   drop_prob=args.drop_prob)
-    model = nn.DataParallel(model, args.gpu_ids)
+
+    if len(args.gpu_ids) > 1:
+        model = nn.DataParallel(model, args.gpu_ids)
     if args.load_path:
         log.info(f'Loading checkpoint from {args.load_path}...')
         model, step = util.load_model(model, args.load_path, args.gpu_ids)
@@ -86,6 +107,14 @@ def main(args):
                                  num_workers=args.num_workers,
                                  collate_fn=collate_fn)
 
+    # get some input data and crate the model graph for tensorboard
+    cw_idxs, cc_idxs, qw_idxs, qc_idxs, y1, y2, ids = next(iter(dev_loader))
+    cw_idxs = cw_idxs.to(device)
+    qw_idxs = qw_idxs.to(device)
+    cc_idxs = cc_idxs.to(device)
+    qc_idxs = qc_idxs.to(device)   
+    tbx.add_graph(model,[cw_idxs, cc_idxs, qw_idxs, qc_idxs])
+    
     # Train
     log.info('Training...')
     steps_till_eval = args.eval_steps
@@ -99,11 +128,13 @@ def main(args):
                 # Setup for forward
                 cw_idxs = cw_idxs.to(device)
                 qw_idxs = qw_idxs.to(device)
+                cc_idxs = cc_idxs.to(device)
+                qc_idxs = qc_idxs.to(device)
                 batch_size = cw_idxs.size(0)
                 optimizer.zero_grad()
-
+                
                 # Forward
-                log_p1, log_p2 = model(cw_idxs, qw_idxs)
+                log_p1, log_p2 = model(cw_idxs,cc_idxs, qw_idxs, qc_idxs)
                 y1, y2 = y1.to(device), y2.to(device)
                 loss = F.nll_loss(log_p1, y1) + F.nll_loss(log_p2, y2)
                 loss_val = loss.item()
@@ -112,7 +143,7 @@ def main(args):
                 loss.backward()
                 nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 optimizer.step()
-                scheduler.step(step // batch_size)
+                scheduler.step() # removed parm step // batch_size per scheduler 1.8 release notes
                 ema(model, step // batch_size)
 
                 # Log info
@@ -120,11 +151,12 @@ def main(args):
                 progress_bar.update(batch_size)
                 progress_bar.set_postfix(epoch=epoch,
                                          NLL=loss_val)
+
                 tbx.add_scalar('train/NLL', loss_val, step)
                 tbx.add_scalar('train/LR',
                                optimizer.param_groups[0]['lr'],
                                step)
-
+                
                 steps_till_eval -= batch_size
                 if steps_till_eval <= 0:
                     steps_till_eval = args.eval_steps
@@ -147,6 +179,7 @@ def main(args):
                     log.info('Visualizing in TensorBoard...')
                     for k, v in results.items():
                         tbx.add_scalar(f'dev/{k}', v, step)
+                        
                     util.visualize(tbx,
                                    pred_dict=pred_dict,
                                    eval_path=args.dev_eval_file,
@@ -154,6 +187,13 @@ def main(args):
                                    split='dev',
                                    num_visuals=args.num_visuals)
 
+    metrics =  dict([ ('final/'+k,v) for (k,v) in results.items()])
+    tbx.add_hparams(hparms,metrics)
+    tbx.close()
+    log.info('Final Hyper-parameters:')
+    log.info(hparms)
+    log.info('Final Metrics:')
+    log.info(metrics)
 
 def evaluate(model, data_loader, device, eval_file, max_len, use_squad_v2):
     nll_meter = util.AverageMeter()
@@ -168,10 +208,12 @@ def evaluate(model, data_loader, device, eval_file, max_len, use_squad_v2):
             # Setup for forward
             cw_idxs = cw_idxs.to(device)
             qw_idxs = qw_idxs.to(device)
+            cc_idxs = cc_idxs.to(device)
+            qc_idxs = qc_idxs.to(device)
             batch_size = cw_idxs.size(0)
 
             # Forward
-            log_p1, log_p2 = model(cw_idxs, qw_idxs)
+            log_p1, log_p2 = model(cw_idxs,cc_idxs, qw_idxs, qc_idxs)
             y1, y2 = y1.to(device), y2.to(device)
             loss = F.nll_loss(log_p1, y1) + F.nll_loss(log_p2, y2)
             nll_meter.update(loss.item(), batch_size)
