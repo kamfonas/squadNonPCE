@@ -1,6 +1,6 @@
 ## About the Branch History
 
-This repository's main branch is the clone of the original [Stanford CS224N Default Project Repository](https://github.com/minggg/squad) mentioned in [this project handout](http://web.stanford.edu/class/cs224n/project/default-final-project-handout.pdf)  branch with the following three modifications:
+This repository's main branch is the clone of the original [Stanford CS224N Default Project Repository](https://github.com/minggg/squad) mentioned in [this project handout](http://web.stanford.edu/class/cs224n/project/default-final-project-handout.pdf)  with the following three modifications:
 
 1.  Added an argument -rnn_type which can take values LSTM or GRU and replaces the RNN used in the run accordingly. 
 2.  Charater embeddings are included in the model according to the BiDAF article. An argumant --char_embeddings enables this functionality
