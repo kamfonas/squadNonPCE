@@ -45,18 +45,17 @@ It is unrealistic to run this code without GPU support. With a small GPU, such a
 
 To train and run the original starting code version:
 
->> python train.py --name some_name  
->> python test.py --name some_name --load_path save/train/some_name-01/step_nnnnnnn.pth.tar 
-You have to provide a name (some_name used here) and must identify the exact path to one of the saved files during training. N
-otice that if you provide the load_path on a training run, it will start from the saved snapshot.
+>\>\> python train.py --name some_name  
+>\>\> python test.py --name some_name --load_path save/train/some_name-01/step_nnnnnnn.pth.tar 
+A name is mandatory as it defines the directory where logs are stored. A path to a saved ".pth.tar" file tells the test script what weights to use. In training, the load_path will start from the saved epoch and the snapshot weights, providing a convenient way to resume interrupted training runs.
 
 To train using char embeddings with GRU and larger batch size with customized learning rate and L2 Regularization:
 
->> python train.py --name some_name --batch_size 256 --rnn_type GRU --char_embeddings True --lr  0.8 --l2_wd 0.0005
+>\>\> python train.py --name some_name --batch_size 256 --rnn_type GRU --char_embeddings True --lr  0.8 --l2_wd 0.0005
 
 To train with the same options but using LSTM and both self-attention and char embeddings:
 
->> python train.py --name some_name --batch_size 256 --rnn_type LSTM --char_embeddings True --self-att True --lr  0.8 --l2_wd 0.0005
+>\>\> python train.py --name some_name --batch_size 256 --rnn_type LSTM --char_embeddings True --self-att True --lr  0.8 --l2_wd 0.0005
 
 See the args.py file to see all arguments
 
