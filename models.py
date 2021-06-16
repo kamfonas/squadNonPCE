@@ -63,9 +63,8 @@ class BiDAF(nn.Module):
                                      rnn_type=rnn_type,
                                      drop_prob=drop_prob)
         
-            self.att2 = layers.BiDAFAttention(hidden_size=2 * hidden_size,
-                                         drop_prob=drop_prob,
-                                         selfAttention=True)
+            self.att2 = layers.SelfAttention(hidden_size=2 * hidden_size,
+                                         drop_prob=drop_prob)
 
             self.mod2 = layers.RNNEncoder(input_size=6 * hidden_size,
                                      hidden_size=hidden_size,
@@ -77,8 +76,8 @@ class BiDAF(nn.Module):
                                       rnn_type=rnn_type)
 
         else:
-            self.att = layers.BiDAFAttention(hidden_size=2 * hidden_size,
-                                    drop_prob=drop_prob)
+            #self.att = layers.BiDAFAttention(hidden_size=2 * hidden_size,
+            #                        drop_prob=drop_prob)
             self.mod = layers.RNNEncoder(input_size=8 * hidden_size,
                                      hidden_size=hidden_size,
                                      num_layers=2,
@@ -109,11 +108,10 @@ class BiDAF(nn.Module):
         mod = self.mod(att, c_len)        # (batch_size, c_len, 2 * hidden_size)
         
         if self.self_att:
-            att2 = self.att2(mod, mod,
-                             c_mask, c_mask)    # (batch_size, c_len, 8 * hidden_size)
-            mod2 = self.mod2(att2, c_len)        # (batch_size, c_len, 2 * hidden_size)
-            out = self.out(mod, mod2, c_mask)  # 2 tensors, each (batch_size, c_len)        
+            att2 = self.att2(att, mod, c_mask) # (batch_size, c_len, 8 * hidden_size)
+            mod2 = self.mod2(att2, c_len)      # (batch_size, c_len, 2 * hidden_size)
+            out  = self.out(att2, mod2, c_mask)  # 2 tensors, each (batch_size, c_len)        
         else:
-            out = self.out(att, mod, c_mask)  # 2 tensors, each (batch_size, c_len)
+            out  = self.out(att, mod, c_mask)  # 2 tensors, each (batch_size, c_len)
 
         return out
