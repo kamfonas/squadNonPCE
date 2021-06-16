@@ -68,7 +68,7 @@ class BiDAF(nn.Module):
 
             self.mod2 = layers.RNNEncoder(input_size=6 * hidden_size,
                                      hidden_size=hidden_size,
-                                     num_layers=2,
+                                     num_layers=1,
                                      rnn_type=rnn_type,
                                      drop_prob=drop_prob)
             self.out = layers.BiDAFOutput2(hidden_size=hidden_size,
