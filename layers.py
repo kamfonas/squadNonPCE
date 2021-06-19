@@ -218,7 +218,6 @@ class BiDAFAttention(nn.Module):
         a = torch.bmm(s1, q)
         
         if self.selfAttention:
-            assert(torch.all(c.eq(q))), "Self attention requires c == c and c_mask = q_mask"
             x = torch.cat([c, a, c * a], dim=2)  # (bs, c_len, 3 * hid_size)
         else:
             # (bs, c_len, c_len) x (bs, c_len, hid_size) => (bs, c_len, hid_size)
@@ -252,6 +251,80 @@ class BiDAFAttention(nn.Module):
         #    s -= (1.0e7)*(torch.eye(c_len,c_len).unsqueeze(0).to(s.device))
         return s
 
+class SelfAttention(nn.Module):
+    """Self attention patterned after BiDAFAttention.
+
+    Self attention computes attention of the question-aware passage on itself:
+    First combine the input from BIDAFAttention with the encoding output as done
+    in the first step of the output of the baseline model. 
+    
+    The rest of the module is identical to the BIDAFAttention with c and q being
+    the same context tensor.
+    The output of this layer is the concatenation of [context, c2c_attention,
+    context * c2c_attention]. This concatenation allows
+    the attention vector at each timestep, along with the embeddings from
+    previous layers, to flow to the modeling layer.
+    The output has shape (batch_size, context_len, 6 * hidden_size).
+
+    Args:
+        hidden_size (int): Size of hidden activations.
+        drop_prob (float): Probability of zero-ing out activations.
+    """
+
+    def __init__(self, hidden_size, drop_prob=0.1, selfAttention = False):
+        super(SelfAttention, self).__init__()
+        self.att_linear_1 = nn.Linear(4 * hidden_size, hidden_size)
+        self.mod_linear_1 = nn.Linear(hidden_size, hidden_size)
+        self.selfAttention = selfAttention
+        self.drop_prob = drop_prob
+        self.c_weight = nn.Parameter(torch.zeros(hidden_size, 1))
+        self.q_weight = nn.Parameter(torch.zeros(hidden_size, 1))
+        self.cq_weight = nn.Parameter(torch.zeros(1, 1, hidden_size))
+        for weight in (self.c_weight, self.q_weight, self.cq_weight):
+            nn.init.xavier_uniform_(weight)
+        self.bias = nn.Parameter(torch.zeros(1))
+
+    def forward(self, c_att,c_mod, mask):
+        c = self.att_linear_1(c_att) + self.mod_linear_1(c_mod)
+        q = c
+        batch_size, c_len, _ = c.size()
+        q_len = c_len
+        s = self.get_similarity_matrix(c, q)  # (batch_size, c_len, q_len)
+        #c_mask = mask.view(batch_size, c_len, 1)  # (batch_size, c_len, 1)
+        mask = mask.view(batch_size, 1, q_len)  # (batch_size, 1, q_len)
+        s1 = masked_softmax(s, mask, dim=2)  # (batch_size, c_len, q_len)
+
+        # (bs, c_len, q_len) x (bs, q_len, hid_size) => (bs, c_len, hid_size)
+        a = torch.bmm(s1, q)
+        
+        x = torch.cat([c, a, c * a], dim=2)  # (bs, c_len, 3 * hid_size)
+
+        return x
+
+    def get_similarity_matrix(self, c, q):
+        """Get the "similarity matrix" between context and query (using the
+        terminology of the BiDAF paper).
+
+        A naive implementation as described in BiDAF would concatenate the
+        three vectors then project the result with a single weight matrix. This
+        method is a more memory-efficient implementation of the same operation.
+
+        See Also:
+            Equation 1 in https://arxiv.org/abs/1611.01603
+        """
+        c_len, q_len = c.size(1), q.size(1)
+        c = F.dropout(c, self.drop_prob, self.training)  # (bs, c_len, hid_size)
+        q = F.dropout(q, self.drop_prob, self.training)  # (bs, q_len, hid_size)
+
+        # Shapes: (batch_size, c_len, q_len)
+        s0 = torch.matmul(c, self.c_weight).expand([-1, -1, q_len])
+        s1 = torch.matmul(q, self.q_weight).transpose(1, 2) \
+            .expand([-1, c_len, -1])
+        s2 = torch.matmul(c * self.cq_weight, q.transpose(1, 2))
+        s = s0 + s1 + s2 + self.bias
+        #if self.selfAttention:
+        #    s -= (1.0e7)*(torch.eye(c_len,c_len).unsqueeze(0).to(s.device))
+        return s
  
 class BiDAFOutput(nn.Module):
     """Output layer used by BiDAF for question answering.
@@ -311,7 +384,7 @@ class BiDAFOutput2(nn.Module):
     def __init__(self, hidden_size, drop_prob, rnn_type):
 
         super(BiDAFOutput2, self).__init__()
-        self.att_linear_1 = nn.Linear(2 * hidden_size, 1)
+        self.att_linear_1 = nn.Linear(6 * hidden_size, 1)
         self.mod_linear_1 = nn.Linear(2 * hidden_size, 1)
 
         self.rnn = RNNEncoder(input_size=2 * hidden_size,
@@ -320,7 +393,7 @@ class BiDAFOutput2(nn.Module):
                               rnn_type=rnn_type,
                               drop_prob=drop_prob)
 
-        self.att_linear_2 = nn.Linear(2 * hidden_size, 1)
+        self.att_linear_2 = nn.Linear(6 * hidden_size, 1)
         self.mod_linear_2 = nn.Linear(2 * hidden_size, 1)
 
     def forward(self, att, mod, mask):
