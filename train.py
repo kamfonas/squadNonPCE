@@ -41,8 +41,7 @@ def main(args):
     # record tensorboard hparms
     hparms = args.__dict__.copy()
     hparms['gpu_ids']=str(args.gpu_ids)
-    print(args.self_att)
-    print(hparms['self_att'])
+
     tbx.add_hparams(hparms,{})
     tbx.flush()
 
@@ -79,7 +78,7 @@ def main(args):
     model = model.to(device)
     model.train()
     ema = util.EMA(model, args.ema_decay)
-
+    log.info(model)
     # Get saver
     saver = util.CheckpointSaver(args.save_dir,
                                  max_checkpoints=args.max_checkpoints,
