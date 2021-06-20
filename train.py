@@ -66,7 +66,7 @@ def main(args):
                   hidden_size=args.hidden_size,
                   rnn_type=args.rnn_type,
                   self_att=args.self_att,
-                  rnn_layers=[args.RNN_layers_enc,args.RNN_layers_mod,args.RNN_layers_mod2],
+                  rnn_layers=[args.rnn_layers_enc,args.rnn_layers_mod,args.rnn_layers_mod2],
                   drop_prob=args.drop_prob)
 
     if len(args.gpu_ids) > 1:

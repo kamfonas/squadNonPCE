@@ -257,15 +257,15 @@ def add_train_test_args(parser):
                         default='LSTM',
                         choices=('LSTM', 'GRU'),
                         help='Whether to use LSTM or GRU for all RNNs.')
-    parser.add_argument('--RNN_layers_enc',
+    parser.add_argument('--rnn_layers_enc',
                         type=int,
                         default=1,
                         help='RNN number of RNN layers for RNN encoder layer')
-    parser.add_argument('--RNN_layers_mod',
+    parser.add_argument('--rnn_layers_mod',
                         type=int,
                         default=2,
                         help='RNN number of RNN layers for RNN modeling layer')
-    parser.add_argument('--RNN_layers_mod2',
+    parser.add_argument('--rnn_layers_mod2',
                         type=int,
                         default=2,
                         help='RNN number of RNN layers for mod2 if self-att is used')
