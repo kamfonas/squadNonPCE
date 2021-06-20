@@ -41,8 +41,7 @@ def main(args):
     # record tensorboard hparms
     hparms = args.__dict__.copy()
     hparms['gpu_ids']=str(args.gpu_ids)
-    print(args.self_att)
-    print(hparms['self_att'])
+
     tbx.add_hparams(hparms,{})
     tbx.flush()
 
@@ -67,6 +66,7 @@ def main(args):
                   hidden_size=args.hidden_size,
                   rnn_type=args.rnn_type,
                   self_att=args.self_att,
+                  rnn_layers=[args.RNN_layers_enc,args.RNN_layers_mod,args.RNN_layers_mod2],
                   drop_prob=args.drop_prob)
 
     if len(args.gpu_ids) > 1:
@@ -79,7 +79,7 @@ def main(args):
     model = model.to(device)
     model.train()
     ema = util.EMA(model, args.ema_decay)
-
+    log.info(model)
     # Get saver
     saver = util.CheckpointSaver(args.save_dir,
                                  max_checkpoints=args.max_checkpoints,
