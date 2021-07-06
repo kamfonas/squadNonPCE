@@ -42,7 +42,7 @@ def main(args):
     hparms = args.__dict__.copy()
     hparms['gpu_ids']=str(args.gpu_ids)
 
-    tbx.add_hparams(hparms,{})
+    tbx.add_hparams(hparms,{},run_name="hparmsOnly")
     tbx.flush()
 
     # Set random seed
@@ -188,7 +188,7 @@ def main(args):
                                    num_visuals=args.num_visuals)
 
     metrics =  dict([ ('final/'+k,v) for (k,v) in results.items()])
-    tbx.add_hparams(hparms,metrics)
+    tbx.add_hparams(hparms,metrics,run_name="hparmsAndMetrics")
     tbx.close()
     log.info('Final Hyper-parameters:')
     log.info(hparms)
