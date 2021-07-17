@@ -173,6 +173,10 @@ def get_test_args():
                         type=str,
                         default='submission.csv',
                         help='Name for submission file.')
+    parser.add_argument('--weight_log_file',
+                        type=str,
+                        default='weight_log',
+                        help='Name for weight log file.')
 
     # Require load_path for test.py
     args = parser.parse_args()
