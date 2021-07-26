@@ -27,7 +27,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 from ujson import load as json_load
 from util import collate_fn, SQuAD
-
+import numpy as np
 
 def main(args):
     # Set up logging
@@ -83,6 +83,11 @@ def main(args):
     pred_dict = {}  # Predictions for TensorBoard
     sub_dict = {}   # Predictions for submission
     weight_log_list = []   # Log of prediction p-values vs. y-values for start/end
+    y1_log = []
+    y2_log = []
+    p1_log = []
+    p2_log = []
+    
     eval_file = vars(args)[f'{args.split}_eval_file']
     with open(eval_file, 'r') as fh:
         gold_dict = json_load(fh)
@@ -119,7 +124,10 @@ def main(args):
                                                       args.use_squad_v2)
             pred_dict.update(idx2pred)
             sub_dict.update(uuid2pred)
-            weight_log_list.append((y1,y2,p1,p2))
+            y1_log.append(y1.cpu().detach().numpy())
+            y2_log.append(y2.cpu().detach().numpy())
+            p1_log.append(p1.cpu().detach().numpy())
+            p2_log.append(p2.cpu().detach().numpy())
 
     # Log results (except for test set, since it does not come with labels)
     if args.split != 'test':
@@ -154,7 +162,24 @@ def main(args):
             csv_writer.writerow([uuid, sub_dict[uuid]])
             
     sub_path2 = join(args.save_dir, args.split + '_' + args.weight_log_file)
+    y1_log = np.concatenate(y1_log)
+    y2_log = np.concatenate(y2_log)
+    maxLen = max([x.shape[1] for x in p1_log])
+    X1 = [np.pad(p, 
+           ((0,0),(0,maxLen - p.shape[1] )), 
+           'constant',
+           constant_values=0)
+         for p in p1_log]
+    X2 = [np.pad(p, 
+           ((0,0),(0,maxLen - p.shape[1] )), 
+           'constant',
+           constant_values= 0)
+         for p in p2_log]
+
+    p1_log = np.concatenate(X1, axis = 0)
+    p2_log = np.concatenate(X2, axis = 0)
     with open(sub_path2, 'wb') as out:
+        weight_log_list = [y1_log,y2_log,p1_log,p2_log]
         pickle.dump(weight_log_list, out, pickle.HIGHEST_PROTOCOL)
 
 

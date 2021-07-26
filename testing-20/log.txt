@@ -1,0 +1,35 @@
+[07.26.21 17:17:41] Args: {
+    "batch_size": 16,
+    "char_emb_file": "./data/char_emb.json",
+    "char_embeddings": true,
+    "dev_eval_file": "./data/dev_eval.json",
+    "dev_record_file": "./data/dev.npz",
+    "hidden_size": 100,
+    "load_path": "./save2/train/GRU110-CET-SAF-01/best.pth.tar",
+    "max_ans_len": 15,
+    "name": "testing",
+    "num_visuals": 10,
+    "num_workers": 4,
+    "rnn_layers_enc": 1,
+    "rnn_layers_mod": 1,
+    "rnn_layers_mod2": 0,
+    "rnn_type": "GRU",
+    "save_dir": "./save/test\\testing-20",
+    "self_att": false,
+    "split": "dev",
+    "sub_file": "submission.csv",
+    "test_eval_file": "./data/test_eval.json",
+    "test_record_file": "./data/test.npz",
+    "train_eval_file": "./data/train_eval.json",
+    "train_record_file": "./data/train.npz",
+    "use_squad_v2": true,
+    "weight_log_file": "weight_log",
+    "word_emb_file": "./data/word_emb.json"
+}
+[07.26.21 17:17:42] Loading embeddings...
+[07.26.21 17:17:57] Building model...
+[07.26.21 17:17:57] Loading checkpoint from ./save2/train/GRU110-CET-SAF-01/best.pth.tar...
+[07.26.21 17:18:04] Building dataset...
+[07.26.21 17:18:05] Evaluating on dev split...
+[07.26.21 17:18:48] Dev NLL: 02.48, F1: 69.75, EM: 66.53, AvNA: 75.08
+[07.26.21 17:18:49] Writing submission file to ./save/test\testing-20\dev_submission.csv...
